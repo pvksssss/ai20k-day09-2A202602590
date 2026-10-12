@@ -89,16 +89,27 @@ Mô tả chính xác điều xảy ra khi trip của bạn sập rồi chạy l�
 ### Câu 10
 Nâng từ 2 drive lên **500 xe mỗi ngày**: ba thành phần nào của pipeline này sẽ vỡ đầu tiên, và bạn thay bằng gì (nối với slide 12, 22, 23)?
 
-(trả lời ở đây)
+Ba ứng viên nghẽn cần đo tải trước: (1) FFmpeg giải mã và tính tín hiệu ảnh trên một container; DAG còn giới hạn `silver_frames` chạy một task cùng lúc, nên hàng đợi sẽ dài. Tách worker theo trip, dùng Celery/Kubernetes và autoscale theo backlog. (2) DuckDB cùng file cục bộ và các bước dbt/publish tập trung sẽ chạm RAM, I/O và giới hạn một máy; chuyển biến đổi lớn sang Spark/engine phân tán trên Delta, xử lý incremental theo partition. (3) MinIO một node và ổ cục bộ chịu ingest video, đọc lặp để trích frame, nhiều object JPEG nhỏ; chuyển sang object storage phân tán/managed, quản lý dung lượng, compaction và tối ưu cách đọc video. Đây là dự đoán kiến trúc, chưa phải kết luận benchmark 500 xe. Cần đo throughput, thời gian chờ, RAM và I/O trước khi tăng worker; chỉ tăng số task có thể làm nghẽn storage nặng hơn.
 
 ## Câu hỏi riêng của bạn trên Metabase
 
 Câu SQL bạn thêm vào dashboard và điều nó cho biết:
 
-(trả lời ở đây)
+**Trip nào có tỷ lệ khung bị loại cao nhất, cần kiểm tra chất lượng trước?** SQL lưu riêng tại `report/metabase_question.sql`:
+
+```sql
+SELECT drive_id, trip_id, lighting, conditions, frames, frames_kept,
+       frames - frames_kept AS frames_dropped,
+       ROUND(100.0 * (frames - frames_kept) / NULLIF(frames, 0), 2) AS dropped_pct,
+       avg_speed_kmh, split
+FROM marts.mart_trip_summary
+ORDER BY dropped_pct DESC, frames_dropped DESC, trip_id;
+```
+
+Kết quả: `trip-04622` của A bị loại **34/60 khung (56,67%)**, cao nhất; tiếp theo `trip-03904` loại **11/22 (50%)**, rồi `trip-02086` loại **28/60 (46,67%)**. Bảng giúp ưu tiên xem lại trip có tỷ lệ loại cao, nhưng không tự chứng minh nguyên nhân camera hỏng: cần xem cờ và ảnh cụ thể. Dùng `frames - frames_kept` tránh cộng trùng các cờ lỗi có thể cùng xuất hiện trên một frame.
 
 ## Nhìn lại
 
 Điều bạn thấy bất ngờ nhất, điều gì còn chưa rõ, và một lỗi dữ liệu mà bạn nghĩ pipeline **chưa** bắt được (nếu có). Tối đa 8 dòng.
 
-(trả lời ở đây)
+Điểm đáng chú ý là drive B có 61 khung tối nhưng không nên bỏ tất cả: đây có thể là điều kiện đường thật cần giữ trong dataset. Thí nghiệm ngưỡng cho thấy chỉ tăng dHash từ 2 lên 6 đã tăng số khung bị coi là trùng từ 53 lên 244 ở B. Tôi chưa có kiểm tra ảnh gán nhãn thủ công để khẳng định ngưỡng 2 tối ưu. Pipeline hiện chưa kiểm tra GPS nhảy bất hợp lý hoặc camera lệch góc nhưng vẫn sáng và nét. Tôi cũng thấy version chỉ băm frame ID/split, nên việc version không đổi chưa đủ đảm bảo pixel và nhãn không đổi. Khi chạy trên Windows cần chú ý LF và cổng 8080 đã bị ứng dụng khác chiếm.
