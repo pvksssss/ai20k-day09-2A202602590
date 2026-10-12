@@ -13,8 +13,8 @@ MSSV được giữ nguyên chuỗi `2A202602590` trong `.env` và toàn bộ l�
 
 ## Kết quả cuối
 
-- `dataset_version` của bạn: `<điền>`  (phải khớp `report/evidence/run_summary.json`)
-- Số khung hình train / val / test của bạn: `<điền>`
+- `dataset_version` của bạn: `5453ca1b9950` (khớp `report/evidence/run_summary.json`).
+- Số khung hình train / val / test của bạn: **724 / 148 / 147**, tổng **1.019**, tương ứng **18 / 4 / 4 trip**.
 - `report/verify.txt`: tạo bằng `python3 scripts/check_submission.py --save-verify` (phải có `27/27 checks passed`).
 - Ảnh chụp trong `report/screenshots/`: `airflow_graph.png`, `minio_lake.png`, `metabase_dashboard.png`, và ảnh bài tập sập/chạy lại (log task đỏ thấy trip của bạn).
 
@@ -67,17 +67,17 @@ Khung đen có độ sáng trung bình `<12`; khung tối nằm trong `[12,40)`.
 ### Câu 6
 Dựa vào `leakage.json`: chia theo khung hình làm bao nhiêu trip bị chia cắt, so với chia theo trip? Vì sao điều này làm điểm kiểm thử đẹp một cách giả tạo?
 
-(trả lời ở đây)
+`leakage.json` ghi **1.019 khung của 26 trip**. Khi chia ngẫu nhiên theo frame, **26 trip** nằm ở nhiều split và cả **26 trip** có ảnh ở đồng thời train/test; chia theo trip trong gold cho **0 trip** bị chia cắt. Khung trong cùng chuyến gần nhau về cảnh, thời tiết và góc nhìn, nên chia theo frame có thể cho mô hình nhận ra cảnh đã học, tạo điểm test quá lạc quan về khả năng tổng quát. Chia theo trip giảm kiểu rò rỉ này, nhưng vẫn cần kiểm tra lặp tuyến đường giữa các trip nếu dùng cho đánh giá thực tế.
 
 ### Câu 7
 Vì sao `dataset_version` là **băm nội dung** chứ không phải ngày giờ hay số đếm? Hai lần chạy liên tiếp cho kết quả gì? Vì sao `dataset_version` của bạn **khác** bạn bè dù cùng dữ liệu (liên hệ MSSV)?
 
-(trả lời ở đây)
+Phiên bản là 12 ký tự đầu của SHA-256 trên danh sách `frame_id|split` đã sắp xếp; cùng tập frame và split sẽ ra cùng version dù chạy giờ khác hoặc số lần khác. Bước 4 và export lặp lại đều cho `5453ca1b9950`. MSSV đầy đủ được nối vào `trip_id` trước khi băm MD5 để xếp trip trong từng drive, vì thế đổi MSSV có thể đổi thành viên từng split. Thử `2A202602590-demo` cho `d7720a0fff42`, số train/val/test là **698/157/164**; khôi phục `2A202602590` lại được **724/148/147** và version cũ. Lưu ý đây là băm danh sách frame và split, không phải băm toàn bộ pixel/telemetry; cần thêm checksum nguồn và lineage để xác định đầy đủ dữ liệu.
 
 ### Câu 8
 Đọc phần `lineage` trong `manifest.json` của dataset bạn. Trả lời "dataset này được tạo từ dữ liệu nào?" bằng chính nội dung đó. Nếu một người hỏi 3 tháng sau, thông tin nào giúp tái tạo lại đúng dataset này?
 
-(trả lời ở đây)
+Manifest đã được lưu tại `report/evidence/manifest.json`. Dataset dùng video A có SHA-256 `636ba1a98dfc5ba665d1c935e1d2064e69f4df360ff9ffbd15795957d5e7e9aa`, B có SHA-256 `bfa62703f645ff77a8578ae3fc74a00881140d38a404d43c8e2af265bbee9fdc`, cùng hai bảng telemetry và metadata trips ở bronze. Lineage ghi version Delta của từng bảng nguồn và bảng silver, cho phép truy đúng snapshot đã dùng. Muốn tái tạo sau ba tháng cần giữ file nguồn khớp checksum, snapshot Delta và file dữ liệu của chúng, mã nguồn/phiên bản thư viện, ngưỡng xử lý, tốc độ lấy mẫu và MSSV `2A202602590`. Không được vacuum mất snapshot cần truy lại; nếu chỉ còn dữ liệu thô thì chạy lại với đúng cấu hình và đối chiếu manifest/version.
 
 ## Bước 5 · Điều phối và phục vụ
 
