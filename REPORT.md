@@ -49,18 +49,18 @@ Vì sao test `max_gap_ms` là `warn` còn `in_range` là `error`? Kết quả th
 ### Câu 4
 Dựa vào `idempotency.json`: số dòng trước và sau hai lần chạy lại, và khi ghi kiểu `append`. Vì sao Delta `overwrite` theo partition (một trip) an toàn hơn xoá rồi ghi lại, nhất là khi giữa chừng có lỗi?
 
-(trả lời ở đây)
+Thí nghiệm dùng `trip-02689` có **23 khung**. Trước và sau hai lần chạy lại, toàn bảng vẫn **1.246 dòng**, dấu vân tay đều `6c7480dfde7e`; `unchanged=true`. Bảng thử ghi append hai lần có **46 dòng**, nhân đôi một trip. Delta ghi lại theo predicate `trip_id` bằng một commit nguyên tử, nên người đọc thấy snapshot trước hoặc sau commit; lỗi trước commit không làm mất snapshot cũ như thao tác xóa rồi ghi rời rạc. Trong mã này, partition vật lý là `drive_id`, còn phạm vi thay thế logic là một `trip_id`. Tính nguyên tử đó áp dụng cho bảng Delta; việc tải JPEG lên object storage vẫn là các thao tác riêng.
 
 ### Câu 5
 Khung hình **đen** và khung hình **tối** khác nhau thế nào, pipeline xử lý khác nhau ra sao, bạn có đồng ý không? Dựa vào `threshold.json`: nếu chọn ngưỡng 0, 2, 6 thì bao nhiêu khung bị coi là trùng ở mỗi drive? Bạn chọn ngưỡng nào, vì sao, và ngưỡng đó phụ thuộc vào tốc độ xe thế nào?
 
 | dHash khác tối đa | số khung trùng, drive A | số khung trùng, drive B |
 |---|---|---|
-| 0 | | |
-| 2 | | |
-| 6 | | |
+| 0 | 61 | 8 |
+| 2 | 149 | 53 |
+| 6 | 363 | 244 |
 
-(trả lời ở đây)
+Khung đen có độ sáng trung bình `<12`; khung tối nằm trong `[12,40)`. A/B có **6/4 khung đen** bị loại và **4/61 khung tối** được gắn cờ; cờ tối tự nó không loại khung, nhưng khung đó vẫn có thể bị loại vì trùng, mờ hoặc mất đồng bộ. Giữ cảnh tối là hợp lý vì bóng râm/đường hầm là điều kiện thật cần học. Tôi chọn ngưỡng dHash **2** như pipeline: ngưỡng 0 bỏ sót biến đổi nhỏ do nén, còn ngưỡng 6 đánh dấu tới 363/602 khung A và 244/644 khung B, có nguy cơ bỏ quá nhiều cảnh khác nhau. Xe đi chậm hoặc đứng yên làm ảnh liên tiếp giống nhau; xe nhanh đổi cảnh mạnh nên cần đánh giá ngưỡng cùng tốc độ và tần suất lấy mẫu, không suy ra camera hỏng chỉ từ dHash.
 
 ## Bước 4 · Gold
 
