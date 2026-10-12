@@ -23,14 +23,21 @@ MSSV được giữ nguyên chuỗi `2A202602590` trong `.env` và toàn bộ l�
 ### Câu 1
 Liệt kê **ít nhất 4 khác biệt** giữa telemetry nguồn A và nguồn B mà bạn thấy ở bronze. Vì sao pipeline giữ **mỗi nguồn một bảng bronze** và để mọi cột ở dạng chữ, thay vì gộp và ép kiểu ngay?
 
-(trả lời ở đây)
+Bronze của lần chạy có 3.021 dòng A và 3.234 dòng B. A dùng `ts_utc` dạng ISO UTC, B dùng `timestamp_ms` dạng epoch mili giây; A có `speed_mps` (m/s), B có `spd_kmh` (km/h); A dùng `gas`/`brake` dạng tỷ lệ, B dùng `throttle_pct`/`brake_pct` theo phần trăm. Các cột khác cũng đổi tên: `heading_deg`/`hdg`, `lat`/`latitude`, `lon`/`longitude`, `acc_x`/`ax`, `steer`/`steering`. Đồng hồ B chạy sớm 1.500 ms so với video, A không lệch. Hai bảng riêng giữ nguyên schema từng nguồn; chuỗi rỗng và giá trị lỗi còn nguyên để đối soát, chuẩn hóa lại hoặc điều tra. Ép kiểu và gộp ngay ở bronze có thể làm mất dấu lỗi hoặc làm cả lần ingest thất bại. Nạp lại A báo `already present`, vẫn chỉ có 2 video và 26 trip.
 
 ## Bước 2 · Silver telemetry
 
 ### Câu 2
 Pipeline đưa hai nguồn về một schema như thế nào (đơn vị, kiểu thời gian, **độ lệch đồng hồ**)? Bằng chứng nào trong kết quả bước 2 cho thấy đã đúng? Dán bảng quarantine của bạn (số dòng theo từng lý do, từng drive) và giải thích vì sao dòng lỗi vào `rejects` thay vì bị xoá.
 
-(trả lời ở đây)
+Staging đổi tên cột, đưa tốc độ B về m/s bằng chia 3,6, bàn đạp về tỷ lệ bằng chia 100; thời gian B được tính bằng `to_timestamp((timestamp_ms - offset_ms) / 1000.0)`. A đọc timestamp ISO bằng `timestamptz`. Sau chuẩn hóa, telemetry B bắt đầu `2025-10-08 14:30:00.009 UTC`, chỉ sau video 9 ms thay vì 1.509 ms; kiểm tra clock offset đạt. Tốc độ tối đa làm tròn của A/B là 71/100 km/h.
+
+| Drive | duplicate | speed_missing | speed_out_of_range | Tổng cách ly | Dòng sạch |
+|---|---:|---:|---:|---:|---:|
+| drive_a | 20 | 30 | 3 | 53 | 2.968 |
+| drive_b | 20 | 30 | 3 | 53 | 3.181 |
+
+Đối soát: `2968 + 53 = 3021`, `3181 + 53 = 3234`; cả 7 kiểm tra module 2 đạt. `rejects` giữ dòng lỗi cùng lý do để truy vết, sửa nguồn và tái xử lý, thay vì mất dữ liệu âm thầm khi xóa.
 
 ### Câu 3
 Vì sao test `max_gap_ms` là `warn` còn `in_range` là `error`? Kết quả thí nghiệm `break-gate` của bạn (`break_gate.json`): test nào bắt được, bao nhiêu dòng, và điều đó cho biết gì về vai trò của "cổng chất lượng"?
