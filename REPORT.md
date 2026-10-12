@@ -1,4 +1,4 @@
-# REPORT — Lab Day 9
+﻿# REPORT — Lab Day 9
 
 > Điền **bằng lời và số liệu của chính bạn** (lấy từ đầu ra của `scripts/lab.sh step ...` và từ `report/evidence/*.json`). Bài làm công khai trên GitHub; giảng viên đối chiếu với lịch sử commit và với bài của các bạn khác. Mỗi câu 3 đến 8 dòng là đủ.
 
@@ -84,7 +84,7 @@ Manifest đã được lưu tại `report/evidence/manifest.json`. Dataset dùng
 ### Câu 9
 Mô tả chính xác điều xảy ra khi trip của bạn sập rồi chạy lại: bao nhiêu task chuyển đỏ, bao nhiêu task `upstream_failed`, bạn clear gì, dữ liệu có nhân đôi không, `dataset_version` có đổi không? Bằng chứng (ảnh, số) là gì?
 
-(trả lời ở đây)
+Trong run `kien_failure_recovery`, task mapped `silver_frames[6]` của `trip-02689` đỏ đúng **1 lần** ở attempt 1; log ghi `simulated crash while extracting trip-02689`. Vì task này là upstream của chuỗi dbt nên **7 task downstream** chuyển `upstream_failed` và run tạm thời failed. Tôi chỉ chọn task đỏ map index 6 trong Airflow để clear/retry; khi Airflow cần tiếp tục scheduler, các downstream đã ở trạng thái upstream_failed được đưa về queued theo cùng run, không chạy lại các trip đã xanh. Lần retry của map index 6 là attempt 2 và thành công; sau đó toàn bộ run có **37/37 task instance success**, trạng thái DAG success. Bằng chứng là `airflow_failure.json`, `airflow_recovery_final.json`, `report/logs/airflow_crash.txt`, ảnh `airflow_crash_log.jpg` và `airflow_failed_graph.jpg`. Sau recovery verify vẫn **27/27**, gold vẫn **1.019 frame**, `dataset_version` vẫn `5453ca1b9950`; Delta overwrite theo trip giữ một partition, không nhân đôi dữ liệu.
 
 ### Câu 10
 Nâng từ 2 drive lên **500 xe mỗi ngày**: ba thành phần nào của pipeline này sẽ vỡ đầu tiên, và bạn thay bằng gì (nối với slide 12, 22, 23)?
