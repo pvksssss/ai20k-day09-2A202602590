@@ -42,7 +42,7 @@ Staging đổi tên cột, đưa tốc độ B về m/s bằng chia 3,6, bàn đ
 ### Câu 3
 Vì sao test `max_gap_ms` là `warn` còn `in_range` là `error`? Kết quả thí nghiệm `break-gate` của bạn (`break_gate.json`): test nào bắt được, bao nhiêu dòng, và điều đó cho biết gì về vai trò của "cổng chất lượng"?
 
-(trả lời ở đây)
+`max_gap_ms` là `warn` vì khoảng mất tín hiệu cần được theo dõi nhưng phần dữ liệu còn lại vẫn dùng được; downstream còn gắn `sync_lost` và lọc các khung không đồng bộ. `in_range` là `error` vì tốc độ ngoài 0–70 m/s vi phạm miền dữ liệu được phép, cần chặn trước khi vào gold. Trong `break_gate.json`, nới luật làm sạch lên 1.000 m/s khiến test `in_range_silver_telemetry_speed_mps__70__0` bắt được **6 dòng**; tổng kết `PASS=5 WARN=1 ERROR=1 SKIP=0`. Khôi phục luật gốc được `PASS=6 WARN=1 ERROR=0 SKIP=0`. Cổng chất lượng kiểm tra độc lập với luật biến đổi: biến đổi chạy được không có nghĩa đầu ra đã hợp lệ.
 
 ## Bước 3 · Silver frames
 

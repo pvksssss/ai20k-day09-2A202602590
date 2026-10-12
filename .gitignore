@@ -6,6 +6,8 @@ work/*
 .env
 target/
 logs/
+!report/logs/
+!report/logs/**
 *.duckdb
 *.duckdb.wal
 *.tar
